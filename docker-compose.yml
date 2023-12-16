@@ -1,0 +1,34 @@
+services:
+  ssh-tunnel:
+    build: ssh-tunnel
+    ports:
+      - 8080:8080
+    secrets:
+      - sshtunnel_key
+    command:
+      - autossh
+      - -v
+      - -i 
+      - /run/secrets/sshtunnel_key 
+      - -M0
+      - -N 
+      - -D0.0.0.0:8080 
+      - -oUserKnownHostsFile=/dev/null
+      - -oStrictHostKeyChecking=no 
+      - -oServerAliveInterval=10
+      - -oServerAliveCountMax=3
+      - ${SSHTUNNEL_USER}@${SSHTUNNEL_HOST}
+
+  nginx:
+    depends_on:
+      - ssh-tunnel
+    image: nginx:alpine
+    ports:
+      - 127.0.0.1:8081:80
+    volumes:
+      - ./proxy.pac:/usr/share/nginx/html/proxy.pac:ro
+
+
+secrets:
+  sshtunnel_key: 
+    file: ./.sshtunnel_key

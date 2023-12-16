@@ -1,0 +1,41 @@
+= SOCKS5 прокси в докере с автоконфигурацией браузера
+
+Есть два контейнера - один прокладывает SSH тоннель и следит за его состоянием, при необходимости восстанавливает соединение. второй раздает файл proxy.pac с конфигурацией прокси. Его мы надо скормить браузеру.
+Предназначен для локального использования. Удобно, когда можно настраивать на какой сайт каким методом ходить. Легко расширить другими прокси. 
+
+
+[source, sh]
+----
+# генерим ключ, публичный закидываем на ВМ
+ssh-keygen -t ed25519 -f ./.sshtunnel_key
+echo SSHTUNNEL_USER=myuser > .env
+echo SSHTUNNEL_HOST=${MY_REMOTE_SSH_HOST} > .env
+
+# создаем файл конфигурации прокси
+# формат .pac файла - https://developer.mozilla.org/en-US/docs/Web/HTTP/Proxy_servers_and_tunneling/Proxy_Auto-Configuration_PAC_file
+vim proxy.pac
+function FindProxyForURL(url, host) {
+    PROXY = "SOCKS 127.0.0.1:8080"
+
+    // Via proxy
+    if (dnsDomainIs(host, "ifconfig.io")) {
+        return PROXY;
+    }
+    
+    // Everything else directly!
+    return "DIRECT";
+}%
+
+# запускаем
+docker-compose up -d
+
+# проверяем что все ОК:
+# прокси работает
+$ curl ifconfig.io 
+% curl --socks5 127.0.0.1:8080 ifconfig.io
+
+# proxy.pac виден
+% curl http://127.0.0.1:8081/proxy.pac
+----
+
+Теперь можно настраивать автоконфигурацию прокси в ОС, указав ссылку http://127.0.0.1:8081/proxy.pac
